@@ -11,7 +11,7 @@ set -euo pipefail
 REPO_PATH="${1:-}"
 MIN_COMMITS="${2:-10}"
 MAX_COMMITS="${3:-20}"
-BRANCH_NAME="${BRANCH_NAME:-master}"
+DAILY_GIT_BRANCH="${DAILY_GIT_BRANCH:-}"
 TRACK_FILE=".daily-activity.log"
 
 if [[ -z "$REPO_PATH" ]]; then
@@ -43,17 +43,25 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 
 # Pick current branch if not provided.
-if [[ -z "$BRANCH_NAME" ]]; then
-  BRANCH_NAME="$(git branch --show-current)"
+if [[ -z "$DAILY_GIT_BRANCH" ]]; then
+  DAILY_GIT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
 fi
 
-if [[ -z "$BRANCH_NAME" ]]; then
-  echo "Error: could not detect branch. Set BRANCH_NAME env var."
+if [[ -z "$DAILY_GIT_BRANCH" ]]; then
+  if git show-ref --verify --quiet "refs/heads/main"; then
+    DAILY_GIT_BRANCH="main"
+  elif git show-ref --verify --quiet "refs/heads/master"; then
+    DAILY_GIT_BRANCH="master"
+  fi
+fi
+
+if [[ -z "$DAILY_GIT_BRANCH" ]]; then
+  echo "Error: could not detect branch. Set DAILY_GIT_BRANCH env var."
   exit 1
 fi
 
 COMMIT_COUNT=$(( RANDOM % (MAX_COMMITS - MIN_COMMITS + 1) + MIN_COMMITS ))
-echo "Creating $COMMIT_COUNT commits on branch '$BRANCH_NAME' in '$REPO_PATH'"
+echo "Creating $COMMIT_COUNT commits on branch '$DAILY_GIT_BRANCH' in '$REPO_PATH'"
 
 for (( i=1; i<=COMMIT_COUNT; i++ )); do
   NOW="$(date '+%Y-%m-%d %H:%M:%S')"
@@ -64,5 +72,5 @@ for (( i=1; i<=COMMIT_COUNT; i++ )); do
   git commit -m "chore(daily): activity update $i/$COMMIT_COUNT (rand:$RAND_VALUE)"
 done
 
-git push origin "$BRANCH_NAME"
+git push origin "$DAILY_GIT_BRANCH"
 echo "Done: pushed $COMMIT_COUNT commits."
